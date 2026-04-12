@@ -1,0 +1,16 @@
+{
+  "name": "puntofarma-unofficial-api",
+  "version": "1.0.0",
+  "description": "API no oficial para productos de Punto Farma usando Playwright",
+  "main": "src/server.js",
+  "type": "commonjs",
+  "scripts": {
+    "start": "node src/server.js",
+    "dev": "node --watch src/server.js",
+    "sync": "node src/sync.js"
+  },
+  "dependencies": {
+    "express": "^4.21.2",
+    "playwright": "^1.52.0"
+  }
+}

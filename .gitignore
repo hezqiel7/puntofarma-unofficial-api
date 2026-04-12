@@ -1,0 +1,13 @@
+node_modules/
+data/
+.playwright/
+.playwright-mcp/
+playwright-report/
+test-results/
+.DS_Store
+.vercel/
+*.log
+tmp-*.out.log
+tmp-*.err.log
+diag-*.out.log
+diag-*.err.log

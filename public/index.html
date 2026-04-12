@@ -1,0 +1,151 @@
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Punto Farma API - Explorador</title>
+    <link rel="stylesheet" href="/styles.css" />
+  </head>
+  <body>
+    <header class="topbar">
+      <div>
+        <h1>Punto Farma API</h1>
+        <p>Web simple para hacer peticiones y ver productos.</p>
+      </div>
+      <div id="metaBox" class="meta-box">Cargando meta...</div>
+    </header>
+
+    <main class="layout">
+      <section class="panel">
+        <h2>Filtros</h2>
+        <form id="filtersForm" class="grid-form">
+          <label>
+            Buscar (q)
+            <input type="text" id="q" placeholder="titulo, descripcion, marca o sku" />
+          </label>
+
+          <label>
+            Categoria
+            <select id="category">
+              <option value="">Todas</option>
+            </select>
+          </label>
+
+          <label>
+            Subcategoria
+            <select id="subcategory">
+              <option value="">Todas</option>
+            </select>
+          </label>
+
+          <label>
+            Tiene descuento
+            <select id="hasDiscount">
+              <option value="">Todos</option>
+              <option value="true">Si</option>
+              <option value="false">No</option>
+            </select>
+          </label>
+
+          <label>
+            Ordenar por precio
+            <select id="sort">
+              <option value="">Sin ordenar</option>
+              <option value="price_asc">Precio descuento asc</option>
+              <option value="price_desc">Precio descuento desc</option>
+            </select>
+          </label>
+
+          <label>
+            Precio min
+            <input type="number" id="priceMin" min="0" step="1" placeholder="Ej: 10000" />
+          </label>
+
+          <label>
+            Precio max
+            <input type="number" id="priceMax" min="0" step="1" placeholder="Ej: 200000" />
+          </label>
+
+          <label>
+            Descuento % min
+            <input type="number" id="discountMin" min="0" step="1" placeholder="Ej: 10" />
+          </label>
+
+          <label>
+            Descuento % max
+            <input type="number" id="discountMax" min="0" step="1" placeholder="Ej: 30" />
+          </label>
+
+          <label>
+            Limite
+            <select id="limit">
+              <option value="20">20</option>
+              <option value="50" selected>50</option>
+              <option value="100">100</option>
+              <option value="200">200</option>
+              <option value="all">all</option>
+            </select>
+          </label>
+
+          <label>
+            Offset
+            <input type="number" id="offset" min="0" value="0" />
+          </label>
+
+          <div class="actions">
+            <button type="submit" class="btn primary">Buscar</button>
+            <button type="button" id="clearBtn" class="btn">Limpiar</button>
+          </div>
+        </form>
+
+        <div class="helper">
+          <strong>Endpoint:</strong> <code id="requestPreview">/products</code>
+        </div>
+      </section>
+
+      <section class="panel">
+        <h2>Acciones API</h2>
+        <div class="actions-row">
+          <label>
+            ID o SKU
+            <input type="text" id="productId" placeholder="Ej: 264929" />
+          </label>
+          <button id="getByIdBtn" class="btn">GET /products/:id</button>
+        </div>
+
+        <div class="actions-row sync">
+          <label>
+            Max productos (sync)
+            <input type="number" id="syncMax" min="1" placeholder="vacio = todo" />
+          </label>
+          <label>
+            Concurrency
+            <input type="number" id="syncConcurrency" min="1" value="40" />
+          </label>
+          <label class="checkbox-label">
+            <input type="checkbox" id="syncFull" />
+            Full sync (forzar recarga de todo)
+          </label>
+          <button id="syncBtn" class="btn warning">POST /sync</button>
+        </div>
+
+        <pre id="actionOutput" class="output">Listo.</pre>
+      </section>
+
+      <section class="panel full">
+        <div class="products-head">
+          <h2>Productos</h2>
+          <div id="resultInfo" class="result-info">Sin resultados aun.</div>
+          <div class="pager">
+            <button id="prevBtn" class="btn">Anterior</button>
+            <button id="nextBtn" class="btn">Siguiente</button>
+          </div>
+        </div>
+
+        <div id="productsList" class="products-list"></div>
+      </section>
+    </main>
+
+    <script src="/app.js"></script>
+  </body>
+  </html>

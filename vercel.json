@@ -1,0 +1,17 @@
+{
+  "functions": {
+    "api/[[...route]].js": {
+      "runtime": "nodejs20.x",
+      "maxDuration": 60
+    }
+  },
+  "rewrites": [
+    { "source": "/health", "destination": "/api/health" },
+    { "source": "/meta", "destination": "/api/meta" },
+    { "source": "/categories", "destination": "/api/categories" },
+    { "source": "/products", "destination": "/api/products" },
+    { "source": "/products/:id", "destination": "/api/products/:id" },
+    { "source": "/sync", "destination": "/api/sync" },
+    { "source": "/sync/errors", "destination": "/api/sync/errors" }
+  ]
+}
