@@ -16,7 +16,7 @@
     </header>
 
     <main class="layout">
-      <section class="panel">
+      <section class="panel full">
         <h2>Filtros</h2>
         <form id="filtersForm" class="grid-form">
           <label>
@@ -103,19 +103,6 @@
         </div>
 
         <div id="searchHint" class="search-hint" aria-live="polite"></div>
-      </section>
-
-      <section class="panel">
-        <h2>Acciones API</h2>
-        <div class="actions-row">
-          <label>
-            ID o SKU
-            <input type="text" id="productId" placeholder="Ej: 264929" />
-          </label>
-          <button id="getByIdBtn" class="btn">GET /products/:id</button>
-        </div>
-
-        <pre id="actionOutput" class="output">Listo.</pre>
       </section>
 
       <section class="panel full">

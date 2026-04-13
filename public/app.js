@@ -15,9 +15,6 @@ const els = {
   clearBtn: document.getElementById("clearBtn"),
   requestPreview: document.getElementById("requestPreview"),
   searchHint: document.getElementById("searchHint"),
-  productId: document.getElementById("productId"),
-  getByIdBtn: document.getElementById("getByIdBtn"),
-  actionOutput: document.getElementById("actionOutput"),
   resultInfo: document.getElementById("resultInfo"),
   productsList: document.getElementById("productsList"),
   prevBtn: document.getElementById("prevBtn"),
@@ -148,12 +145,6 @@ function getFilterKey() {
 function updateRequestPreview(path, params) {
   const query = params.toString();
   els.requestPreview.textContent = query ? `${path}?${query}` : path;
-}
-
-function setOutput(value, isError = false) {
-  els.actionOutput.style.color = isError ? "#ffd0d0" : "#d4f2ff";
-  els.actionOutput.textContent =
-    typeof value === "string" ? value : JSON.stringify(value, null, 2);
 }
 
 function fillSubcategoryOptions() {
@@ -294,23 +285,6 @@ async function fetchProducts(options = {}) {
   }
 }
 
-async function fetchById() {
-  const id = els.productId.value.trim();
-  if (!id) {
-    setOutput("Escribe un ID o SKU.", true);
-    return;
-  }
-
-  try {
-    const item = await api(`/products/${encodeURIComponent(id)}`);
-    setOutput(item);
-    els.resultInfo.textContent = `Mostrando producto ${id}`;
-    renderProducts([item]);
-  } catch (error) {
-    setOutput(error.message, true);
-  }
-}
-
 els.filtersForm.addEventListener("submit", (event) => {
   event.preventDefault();
   fetchProducts();
@@ -330,8 +304,6 @@ els.clearBtn.addEventListener("click", () => {
 });
 
 els.q.addEventListener("input", updateSearchHint);
-
-els.getByIdBtn.addEventListener("click", fetchById);
 
 els.prevBtn.addEventListener("click", () => {
   const step = Number(els.limit.value || 0);

@@ -153,24 +153,6 @@ select {
   display: block;
 }
 
-.actions-row {
-  display: flex;
-  gap: 10px;
-  align-items: end;
-  margin-bottom: 10px;
-}
-
-.output {
-  margin: 0;
-  background: #0f1720;
-  color: #d4f2ff;
-  border-radius: 10px;
-  padding: 10px;
-  min-height: 80px;
-  overflow: auto;
-  white-space: pre-wrap;
-}
-
 .products-head {
   display: flex;
   align-items: center;
@@ -258,10 +240,5 @@ select {
 
   .grid-form {
     grid-template-columns: 1fr;
-  }
-
-  .actions-row {
-    flex-direction: column;
-    align-items: stretch;
   }
 }
