@@ -11,3 +11,5 @@ tmp-*.out.log
 tmp-*.err.log
 diag-*.out.log
 diag-*.err.log
+
+.vercel
