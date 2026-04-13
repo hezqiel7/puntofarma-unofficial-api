@@ -188,14 +188,20 @@ function getSearchRank(item, normalizedQuery, queryTerms, unitTerms) {
   } else if (hasExactPhrase) {
     bucket = 1;
   } else if (unitTerms.length > 0) {
-    if (hasAllWordTermsInTitle && hasAllUnitsInTitle) {
-      bucket = 2;
-    } else if (hasAllWordTermsInText && hasAllUnitsInText) {
-      bucket = 3;
-    } else if (hasAllWordTermsInTitle && hasAnyUnitInTitle) {
-      bucket = 4;
-    } else if (hasAllWordTermsInText && hasAnyUnitInText) {
-      bucket = 5;
+    if (queryTerms.length > 0) {
+      if (hasAllWordTermsInTitle && hasAllUnitsInTitle) {
+        bucket = 2;
+      } else if (hasAllWordTermsInText && hasAllUnitsInTitle) {
+        bucket = 3;
+      } else if (hasAllWordTermsInTitle && hasAnyUnitInTitle) {
+        bucket = 4;
+      } else if (hasAllWordTermsInText && hasAnyUnitInTitle) {
+        bucket = 5;
+      } else if (hasAllWordTermsInTitle) {
+        bucket = 10;
+      } else if (hasAllWordTermsInText) {
+        bucket = 11;
+      }
     } else if (hasAllUnitsInTitle) {
       bucket = 6;
     } else if (hasAllUnitsInText) {
@@ -204,10 +210,6 @@ function getSearchRank(item, normalizedQuery, queryTerms, unitTerms) {
       bucket = 8;
     } else if (hasAnyUnitInText) {
       bucket = 9;
-    } else if (hasAllWordTermsInTitle) {
-      bucket = 10;
-    } else if (hasAllWordTermsInText) {
-      bucket = 11;
     }
   } else if (hasAllWordTermsInTitle) {
     bucket = 10;
@@ -219,6 +221,8 @@ function getSearchRank(item, normalizedQuery, queryTerms, unitTerms) {
 
   return {
     bucket,
+    unitTermsCount: unitTerms.length,
+    queryTermsCount: queryTerms.length,
     matchedUnitsInTitle,
     matchedUnitsInText,
     matchedWordTermsInTitle,
@@ -248,6 +252,73 @@ function compareSearchRankData(leftRank, rightRank) {
     return rightRank.matchedWordTermsInText - leftRank.matchedWordTermsInText;
   }
   return leftRank.title.localeCompare(rightRank.title, "es");
+}
+
+function compareSearchSectionData(leftRank, rightRank) {
+  if (!leftRank && !rightRank) return 0;
+  if (!leftRank) return 1;
+  if (!rightRank) return -1;
+
+  const leftUnitCount = leftRank.unitTermsCount || 0;
+  const rightUnitCount = rightRank.unitTermsCount || 0;
+  const hasUnitQuery = leftUnitCount > 0 || rightUnitCount > 0;
+
+  if (hasUnitQuery) {
+    const leftQueryTermsCount = leftRank.queryTermsCount || 0;
+    const rightQueryTermsCount = rightRank.queryTermsCount || 0;
+
+    const leftHasAllUnits = leftUnitCount > 0 && leftRank.matchedUnitsInTitle >= leftUnitCount;
+    const rightHasAllUnits = rightUnitCount > 0 && rightRank.matchedUnitsInTitle >= rightUnitCount;
+    const leftHasAnyUnit = leftRank.matchedUnitsInTitle > 0;
+    const rightHasAnyUnit = rightRank.matchedUnitsInTitle > 0;
+
+    const leftHasAllWords =
+      leftQueryTermsCount === 0 || leftRank.matchedWordTermsInText >= leftQueryTermsCount;
+    const rightHasAllWords =
+      rightQueryTermsCount === 0 || rightRank.matchedWordTermsInText >= rightQueryTermsCount;
+
+    const leftSection =
+      leftQueryTermsCount > 0
+        ? leftHasAllWords && leftHasAllUnits
+          ? 0
+          : leftHasAllWords && leftHasAnyUnit
+            ? 1
+            : leftHasAllWords
+              ? 2
+              : 3
+        : leftHasAllUnits
+          ? 0
+          : leftHasAnyUnit
+            ? 1
+            : 2;
+
+    const rightSection =
+      rightQueryTermsCount > 0
+        ? rightHasAllWords && rightHasAllUnits
+          ? 0
+          : rightHasAllWords && rightHasAnyUnit
+            ? 1
+            : rightHasAllWords
+              ? 2
+              : 3
+        : rightHasAllUnits
+          ? 0
+          : rightHasAnyUnit
+            ? 1
+            : 2;
+
+    if (leftSection !== rightSection) {
+      return leftSection - rightSection;
+    }
+
+    return 0;
+  }
+
+  if (leftRank.bucket !== rightRank.bucket) {
+    return leftRank.bucket - rightRank.bucket;
+  }
+
+  return 0;
 }
 
 function getItemSearchKey(item) {
@@ -496,7 +567,7 @@ app.get("/products", (req, res) => {
   if (normalizedSort === "price_asc" || normalizedSort === "price_desc") {
     const direction = normalizedSort === "price_asc" ? 1 : -1;
     filtered = [...filtered].sort((a, b) => {
-      const rankCompare = compareSearchRankData(
+      const rankCompare = compareSearchSectionData(
         searchRankByItemKey?.get(getItemSearchKey(a)),
         searchRankByItemKey?.get(getItemSearchKey(b))
       );
@@ -512,6 +583,12 @@ app.get("/products", (req, res) => {
       if (left !== right) {
         return (left - right) * direction;
       }
+
+      const detailedRankCompare = compareSearchRankData(
+        searchRankByItemKey?.get(getItemSearchKey(a)),
+        searchRankByItemKey?.get(getItemSearchKey(b))
+      );
+      if (detailedRankCompare !== 0) return detailedRankCompare;
 
       return String(a?.title || "").localeCompare(String(b?.title || ""), "es");
     });
