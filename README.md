@@ -55,7 +55,8 @@ vercel --prod
 Notas importantes para Vercel:
 
 - `POST /sync` esta deshabilitado en Vercel (timeout/ephemeral FS).
-- Para refrescar catalogo, ejecuta sync fuera de Vercel y persiste datos en un storage externo o sube snapshot de datos desde tu pipeline.
+- El deploy usa `seed/products.json` como snapshot inicial de productos.
+- Para refrescar catalogo en produccion, ejecuta `npm run sync -- --full` localmente y vuelve a generar/subir `seed/products.json`.
 
 ## Web de consulta
 

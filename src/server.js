@@ -7,6 +7,7 @@ const { scrapeAllProducts } = require("./scraper/puntofarma");
 const PORT = Number(process.env.PORT || 3000);
 const DATA_DIR = path.join(process.cwd(), "data");
 const DATA_FILE = path.join(DATA_DIR, "products.json");
+const SEED_FILE = path.join(process.cwd(), "seed", "products.json");
 const PUBLIC_DIR = path.join(process.cwd(), "public");
 
 const app = express();
@@ -30,22 +31,30 @@ let hasLoadedData = false;
 let dataLoadPromise = null;
 
 async function loadStoredData() {
-  try {
-    const raw = await fs.readFile(DATA_FILE, "utf8");
-    const parsed = JSON.parse(raw);
+  const candidates = [DATA_FILE, SEED_FILE];
 
-    state.products = Array.isArray(parsed.products) ? parsed.products : [];
-    state.errors = Array.isArray(parsed.errors) ? parsed.errors : [];
-    state.meta = {
-      updatedAt: parsed.meta?.updatedAt || null,
-      total: Number(parsed.meta?.total || state.products.length),
-      failed: Number(parsed.meta?.failed || 0),
-      sourceTotal: Number(parsed.meta?.sourceTotal || 0)
-    };
-  } catch {
-    state.products = [];
-    state.errors = [];
+  for (const candidate of candidates) {
+    try {
+      const raw = await fs.readFile(candidate, "utf8");
+      const parsed = JSON.parse(raw);
+
+      state.products = Array.isArray(parsed.products) ? parsed.products : [];
+      state.errors = Array.isArray(parsed.errors) ? parsed.errors : [];
+      state.meta = {
+        updatedAt: parsed.meta?.updatedAt || null,
+        total: Number(parsed.meta?.total || state.products.length),
+        failed: Number(parsed.meta?.failed || 0),
+        sourceTotal: Number(parsed.meta?.sourceTotal || 0)
+      };
+
+      return;
+    } catch {
+      continue;
+    }
   }
+
+  state.products = [];
+  state.errors = [];
 }
 
 async function ensureDataLoaded() {
