@@ -55,6 +55,7 @@ Notas:
 - El orden por precio usa como referencia `prices.discounted`; si no existe, usa `prices.regular`.
 - `q`, `category` y `subcategory` son case-insensitive y acento-insensitive.
   - Ejemplo: `bebe` y `bebé` matchean igual.
+- En `q` para multiples palabras: primero prioriza coincidencia de frase exacta (`"cinta hipoalergenica"`), luego resultados que contengan todos los terminos aunque sea en otro orden.
 
 Ejemplo:
 

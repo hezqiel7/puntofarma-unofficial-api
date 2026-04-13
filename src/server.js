@@ -108,6 +108,26 @@ function normalizeText(value) {
     .trim();
 }
 
+function getSearchFields(item) {
+  return [item?.title, item?.description, item?.brand, item?.sku]
+    .map((value) => normalizeText(value))
+    .filter(Boolean);
+}
+
+function getSearchRank(item, normalizedQuery, queryTerms) {
+  const fields = getSearchFields(item);
+  if (!fields.length) return null;
+
+  const hasExactPhrase = fields.some((field) => field.includes(normalizedQuery));
+  if (hasExactPhrase) return 0;
+
+  const fullText = fields.join(" ");
+  const hasAllTerms = queryTerms.every((term) => fullText.includes(term));
+  if (hasAllTerms) return 1;
+
+  return null;
+}
+
 function parseBoolean(value, fallback = false) {
   if (value === undefined || value === null || value === "") return fallback;
   if (typeof value === "boolean") return value;
@@ -285,11 +305,21 @@ app.get("/products", (req, res) => {
 
   if (typeof q === "string" && q.trim()) {
     const search = normalizeText(q);
-    filtered = filtered.filter((item) => {
-      return [item.title, item.description, item.brand, item.sku]
-        .filter(Boolean)
-        .some((value) => normalizeText(value).includes(search));
+    const searchTerms = [...new Set(search.split(" ").filter(Boolean))];
+
+    const ranked = [];
+    for (const item of filtered) {
+      const rank = getSearchRank(item, search, searchTerms);
+      if (rank === null) continue;
+      ranked.push({ item, rank });
+    }
+
+    ranked.sort((left, right) => {
+      if (left.rank !== right.rank) return left.rank - right.rank;
+      return String(left.item?.title || "").localeCompare(String(right.item?.title || ""), "es");
     });
+
+    filtered = ranked.map((entry) => entry.item);
   }
 
   if (typeof category === "string" && category.trim()) {
