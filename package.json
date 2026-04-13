@@ -7,7 +7,8 @@
   "scripts": {
     "start": "node src/server.js",
     "dev": "node --watch src/server.js",
-    "sync": "node src/sync.js"
+    "sync": "node src/sync.js",
+    "seed:build": "node src/build-seed.js"
   },
   "dependencies": {
     "express": "^4.21.2",

@@ -115,22 +115,6 @@
           <button id="getByIdBtn" class="btn">GET /products/:id</button>
         </div>
 
-        <div class="actions-row sync">
-          <label>
-            Max productos (sync)
-            <input type="number" id="syncMax" min="1" placeholder="vacio = todo" />
-          </label>
-          <label>
-            Concurrency
-            <input type="number" id="syncConcurrency" min="1" value="40" />
-          </label>
-          <label class="checkbox-label">
-            <input type="checkbox" id="syncFull" />
-            Full sync (forzar recarga de todo)
-          </label>
-          <button id="syncBtn" class="btn warning">POST /sync</button>
-        </div>
-
         <pre id="actionOutput" class="output">Listo.</pre>
       </section>
 

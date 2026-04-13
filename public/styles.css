@@ -160,22 +160,6 @@ select {
   margin-bottom: 10px;
 }
 
-.actions-row.sync label {
-  max-width: 220px;
-}
-
-.checkbox-label {
-  flex-direction: row;
-  align-items: center;
-  gap: 8px;
-  margin-bottom: 5px;
-  max-width: none;
-}
-
-.checkbox-label input {
-  width: auto;
-}
-
 .output {
   margin: 0;
   background: #0f1720;

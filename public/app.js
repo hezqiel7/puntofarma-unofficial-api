@@ -17,10 +17,6 @@ const els = {
   searchHint: document.getElementById("searchHint"),
   productId: document.getElementById("productId"),
   getByIdBtn: document.getElementById("getByIdBtn"),
-  syncMax: document.getElementById("syncMax"),
-  syncConcurrency: document.getElementById("syncConcurrency"),
-  syncFull: document.getElementById("syncFull"),
-  syncBtn: document.getElementById("syncBtn"),
   actionOutput: document.getElementById("actionOutput"),
   resultInfo: document.getElementById("resultInfo"),
   productsList: document.getElementById("productsList"),
@@ -57,7 +53,7 @@ function formatDate(value) {
   if (!value) return "-";
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return value;
-  return date.toLocaleString("es-PY");
+  return date.toLocaleString("es-PY", { timeZone: "America/Asuncion" });
 }
 
 function normalizeForUnitDetection(value) {
@@ -315,37 +311,6 @@ async function fetchById() {
   }
 }
 
-async function runSync() {
-  const payload = {
-    concurrency: Number(els.syncConcurrency.value || 40),
-    full: Boolean(els.syncFull.checked)
-  };
-
-  const max = Number(els.syncMax.value);
-  if (Number.isFinite(max) && max > 0) {
-    payload.maxProducts = Math.floor(max);
-  }
-
-  els.syncBtn.disabled = true;
-  setOutput("Iniciando sincronizacion...");
-
-  try {
-    const response = await api("/sync", {
-      method: "POST",
-      body: JSON.stringify(payload)
-    });
-
-    setOutput(response);
-    await loadMeta();
-    await loadCategories();
-    await fetchProducts();
-  } catch (error) {
-    setOutput(error.message, true);
-  } finally {
-    els.syncBtn.disabled = false;
-  }
-}
-
 els.filtersForm.addEventListener("submit", (event) => {
   event.preventDefault();
   fetchProducts();
@@ -367,7 +332,6 @@ els.clearBtn.addEventListener("click", () => {
 els.q.addEventListener("input", updateSearchHint);
 
 els.getByIdBtn.addEventListener("click", fetchById);
-els.syncBtn.addEventListener("click", runSync);
 
 els.prevBtn.addEventListener("click", () => {
   const step = Number(els.limit.value || 0);

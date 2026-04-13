@@ -27,6 +27,8 @@ Servidor local: `http://localhost:3000`
 
 Panel web local: `http://localhost:3000/`
 
+La interfaz publica no muestra controles de sincronizacion.
+
 ## Endpoints
 
 - `GET /`
@@ -36,7 +38,7 @@ Panel web local: `http://localhost:3000/`
 - `GET /products`
 - `GET /products/:id`
 - `GET /sync/errors`
-- `POST /sync` (solo local, ver seccion Vercel)
+- `POST /sync` (solo uso manual privado, ver seguridad)
 
 ## Filtros y orden en `GET /products`
 
@@ -87,13 +89,43 @@ npm run sync -- --full --concurrency 40
 ```bash
 curl -X POST "http://localhost:3000/sync" \
   -H "Content-Type: application/json" \
-  -d "{\"concurrency\":40}"
+  -H "x-sync-token: TU_TOKEN" \
+  -d "{\"concurrency\":40,\"full\":true}"
 ```
 
 Opcional:
 
 - `maxProducts` para pruebas rapidas
 - `full=true` para recarga completa
+
+## Seguridad de sync manual
+
+- Si defines `SYNC_API_TOKEN`, el endpoint `POST /sync` exige autenticacion.
+- Puedes enviar el token en `x-sync-token` o `Authorization: Bearer <token>`.
+- Esto permite sincronizacion manual privada sin exponerla al publico.
+
+Ejemplo PowerShell:
+
+```powershell
+$env:SYNC_API_TOKEN = "tu-token-seguro"
+npm start
+```
+
+```bash
+curl -X POST "http://localhost:3000/sync" -H "x-sync-token: tu-token-seguro" -H "Content-Type: application/json" -d "{\"full\":true}"
+```
+
+## Sincronizacion automatica diaria (04:00 Paraguay)
+
+- Workflow: `.github/workflows/sync-catalog.yml`
+- Horario: todos los dias a las `04:00` hora Paraguay (`08:00 UTC`)
+- Flujo:
+  1. ejecuta sync
+  2. genera `seed/products.json`
+  3. hace commit y push automatico si hay cambios
+  4. Vercel redeploya por integracion con GitHub
+
+Tambien puedes dispararlo manualmente desde GitHub Actions con `workflow_dispatch` (solo usuarios con permisos de escritura al repo).
 
 ## Rendimiento
 
@@ -118,10 +150,7 @@ Importante en Vercel:
 
 - `POST /sync` esta deshabilitado (limitaciones serverless + filesystem efimero).
 - Produccion carga un snapshot desde `seed/products.json`.
-- Para actualizar datos en produccion:
-  1. ejecutar sync local (`npm run sync -- --full`)
-  2. actualizar `seed/products.json` con el nuevo snapshot
-  3. commit + push (dispara redeploy)
+- El refresh productivo recomendado es por GitHub Actions programado (04:00 Paraguay).
 
 ## Estructura clave
 

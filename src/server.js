@@ -338,6 +338,21 @@ function parseBoolean(value, fallback = false) {
   return fallback;
 }
 
+function getSyncRequestToken(req) {
+  const headerToken = req.headers["x-sync-token"];
+  if (typeof headerToken === "string" && headerToken.trim()) {
+    return headerToken.trim();
+  }
+
+  const authHeader = req.headers.authorization;
+  if (typeof authHeader === "string") {
+    const match = authHeader.match(/^Bearer\s+(.+)$/i);
+    if (match?.[1]) return match[1].trim();
+  }
+
+  return "";
+}
+
 function mergeErrors(existingErrors, newErrors, products) {
   const knownProductUrls = new Set(
     (products || []).map((product) => product?.url).filter(Boolean)
@@ -622,6 +637,15 @@ app.get("/products/:id", (req, res) => {
 
 app.post("/sync", async (req, res) => {
   try {
+    const expectedToken = process.env.SYNC_API_TOKEN;
+    if (expectedToken) {
+      const requestToken = getSyncRequestToken(req);
+      if (!requestToken || requestToken !== expectedToken) {
+        res.status(401).json({ error: "No autorizado para ejecutar sync" });
+        return;
+      }
+    }
+
     if (process.env.VERCEL) {
       res.status(501).json({
         error: "POST /sync no esta habilitado en Vercel. Ejecuta sync fuera de Vercel y persiste datos en una base externa."

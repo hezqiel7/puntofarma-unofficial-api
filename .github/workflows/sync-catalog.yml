@@ -1,0 +1,67 @@
+name: Sync Catalog
+
+on:
+  workflow_dispatch:
+    inputs:
+      full:
+        description: "Ejecutar sync full"
+        required: false
+        default: true
+        type: boolean
+      concurrency:
+        description: "Concurrencia para scraper"
+        required: false
+        default: "40"
+        type: string
+  schedule:
+    # 08:00 UTC = 04:00 America/Asuncion
+    - cron: "0 8 * * *"
+
+permissions:
+  contents: write
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run sync
+        run: |
+          CONCURRENCY="40"
+          FULL_FLAG="--full"
+
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            CONCURRENCY="${{ inputs.concurrency }}"
+            if [ "${{ inputs.full }}" != "true" ]; then
+              FULL_FLAG=""
+            fi
+          fi
+
+          npm run sync -- $FULL_FLAG --concurrency "$CONCURRENCY"
+
+      - name: Build seed snapshot
+        run: npm run seed:build
+
+      - name: Commit and push seed changes
+        run: |
+          if git diff --quiet -- seed/products.json; then
+            echo "Sin cambios en seed/products.json"
+            exit 0
+          fi
+
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add seed/products.json
+          git commit -m "chore: update seed catalog snapshot"
+          git push
