@@ -56,6 +56,7 @@ Notas:
 - `q`, `category` y `subcategory` son case-insensitive y acento-insensitive.
   - Ejemplo: `bebe` y `bebé` matchean igual.
 - En `q` para multiples palabras: primero prioriza coincidencia de frase exacta (`"cinta hipoalergenica"`), luego resultados que contengan todos los terminos aunque sea en otro orden.
+- Si `q` incluye dosis/unidades (ej: `500mg`, `5ml`, `20 unidades`, `500mg/5ml`), el ranking prioriza productos con esas unidades exactas.
 
 Ejemplo:
 

@@ -108,24 +108,123 @@ function normalizeText(value) {
     .trim();
 }
 
+function getUnitExpressionRegex() {
+  return /\b\d+(?:[.,]\d+)?\s*(?:mg|g|mcg|ug|ui|iu|ml|l|meq|%)(?:\s*\/\s*\d+(?:[.,]\d+)?\s*(?:ml|l))?\b|\b\d+\s*(?:unidades?|comprimidos?|capsulas?|ampollas?|gotas?)\b/gi;
+}
+
+function compactForUnitMatch(value) {
+  return String(value ?? "")
+    .toLowerCase()
+    .replace(/\s+/g, "")
+    .replace(/\./g, "")
+    .replace(/,/g, ".");
+}
+
+function extractUnitTerms(normalizedQuery) {
+  const terms = [];
+  const seen = new Set();
+  const regex = getUnitExpressionRegex();
+
+  for (const match of normalizedQuery.matchAll(regex)) {
+    const compact = compactForUnitMatch(match[0]);
+    if (!compact || seen.has(compact)) continue;
+    seen.add(compact);
+    terms.push(compact);
+  }
+
+  return terms;
+}
+
+function removeUnitExpressions(normalizedQuery) {
+  return normalizedQuery.replace(getUnitExpressionRegex(), " ");
+}
+
+function tokenizeSearchTerms(normalizedQuery) {
+  return normalizedQuery
+    .split(" ")
+    .map((part) => part.replace(/^[^a-z0-9%]+|[^a-z0-9%]+$/g, ""))
+    .filter(Boolean);
+}
+
 function getSearchFields(item) {
   return [item?.title, item?.description, item?.brand, item?.sku]
     .map((value) => normalizeText(value))
     .filter(Boolean);
 }
 
-function getSearchRank(item, normalizedQuery, queryTerms) {
+function getSearchRank(item, normalizedQuery, queryTerms, unitTerms) {
   const fields = getSearchFields(item);
   if (!fields.length) return null;
 
-  const hasExactPhrase = fields.some((field) => field.includes(normalizedQuery));
-  if (hasExactPhrase) return 0;
-
+  const title = fields[0] || "";
   const fullText = fields.join(" ");
-  const hasAllTerms = queryTerms.every((term) => fullText.includes(term));
-  if (hasAllTerms) return 1;
+  const titleCompact = compactForUnitMatch(title);
+  const fullCompact = compactForUnitMatch(fullText);
 
-  return null;
+  const hasExactPhrase = fields.some((field) => field.includes(normalizedQuery));
+  const hasExactPhraseInTitle = title.includes(normalizedQuery);
+
+  const hasAllWordTermsInTitle =
+    queryTerms.length === 0 || queryTerms.every((term) => title.includes(term));
+  const hasAllWordTermsInText =
+    queryTerms.length === 0 || queryTerms.every((term) => fullText.includes(term));
+
+  const matchedWordTermsInTitle = queryTerms.filter((term) => title.includes(term)).length;
+  const matchedWordTermsInText = queryTerms.filter((term) => fullText.includes(term)).length;
+
+  const matchedUnitsInTitle = unitTerms.filter((term) => titleCompact.includes(term)).length;
+  const matchedUnitsInText = unitTerms.filter((term) => fullCompact.includes(term)).length;
+  const hasAllUnitsInTitle =
+    unitTerms.length > 0 && matchedUnitsInTitle === unitTerms.length;
+  const hasAllUnitsInText =
+    unitTerms.length > 0 && matchedUnitsInText === unitTerms.length;
+  const hasAnyUnitInTitle = matchedUnitsInTitle > 0;
+  const hasAnyUnitInText = matchedUnitsInText > 0;
+
+  let bucket = null;
+
+  if (hasExactPhraseInTitle) {
+    bucket = 0;
+  } else if (hasExactPhrase) {
+    bucket = 1;
+  } else if (unitTerms.length > 0) {
+    if (hasAllWordTermsInTitle && hasAllUnitsInTitle) {
+      bucket = 2;
+    } else if (hasAllWordTermsInText && hasAllUnitsInText) {
+      bucket = 3;
+    } else if (hasAllWordTermsInTitle && hasAnyUnitInTitle) {
+      bucket = 4;
+    } else if (hasAllWordTermsInText && hasAnyUnitInText) {
+      bucket = 5;
+    } else if (hasAllUnitsInTitle) {
+      bucket = 6;
+    } else if (hasAllUnitsInText) {
+      bucket = 7;
+    } else if (hasAnyUnitInTitle) {
+      bucket = 8;
+    } else if (hasAnyUnitInText) {
+      bucket = 9;
+    } else if (hasAllWordTermsInTitle) {
+      bucket = 10;
+    } else if (hasAllWordTermsInText) {
+      bucket = 11;
+    }
+  } else if (hasAllWordTermsInTitle) {
+    bucket = 10;
+  } else if (hasAllWordTermsInText) {
+    bucket = 11;
+  }
+
+  if (bucket === null) return null;
+
+  return {
+    bucket,
+    matchedUnitsInTitle,
+    matchedUnitsInText,
+    matchedWordTermsInTitle,
+    matchedWordTermsInText,
+    title: String(item?.title || "")
+  };
 }
 
 function parseBoolean(value, fallback = false) {
@@ -305,18 +404,34 @@ app.get("/products", (req, res) => {
 
   if (typeof q === "string" && q.trim()) {
     const search = normalizeText(q);
-    const searchTerms = [...new Set(search.split(" ").filter(Boolean))];
+    const unitTerms = extractUnitTerms(search);
+    const textWithoutUnits = removeUnitExpressions(search);
+    const searchTerms = [...new Set(tokenizeSearchTerms(textWithoutUnits))];
 
     const ranked = [];
     for (const item of filtered) {
-      const rank = getSearchRank(item, search, searchTerms);
+      const rank = getSearchRank(item, search, searchTerms, unitTerms);
       if (rank === null) continue;
       ranked.push({ item, rank });
     }
 
     ranked.sort((left, right) => {
-      if (left.rank !== right.rank) return left.rank - right.rank;
-      return String(left.item?.title || "").localeCompare(String(right.item?.title || ""), "es");
+      if (left.rank.bucket !== right.rank.bucket) {
+        return left.rank.bucket - right.rank.bucket;
+      }
+      if (left.rank.matchedUnitsInTitle !== right.rank.matchedUnitsInTitle) {
+        return right.rank.matchedUnitsInTitle - left.rank.matchedUnitsInTitle;
+      }
+      if (left.rank.matchedUnitsInText !== right.rank.matchedUnitsInText) {
+        return right.rank.matchedUnitsInText - left.rank.matchedUnitsInText;
+      }
+      if (left.rank.matchedWordTermsInTitle !== right.rank.matchedWordTermsInTitle) {
+        return right.rank.matchedWordTermsInTitle - left.rank.matchedWordTermsInTitle;
+      }
+      if (left.rank.matchedWordTermsInText !== right.rank.matchedWordTermsInText) {
+        return right.rank.matchedWordTermsInText - left.rank.matchedWordTermsInText;
+      }
+      return left.rank.title.localeCompare(right.rank.title, "es");
     });
 
     filtered = ranked.map((entry) => entry.item);
