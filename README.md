@@ -57,6 +57,7 @@ Notas:
   - Ejemplo: `bebe` y `bebé` matchean igual.
 - En `q` para multiples palabras: primero prioriza coincidencia de frase exacta (`"cinta hipoalergenica"`), luego resultados que contengan todos los terminos aunque sea en otro orden.
 - Si `q` incluye dosis/unidades (ej: `500mg`, `5ml`, `20 unidades`, `500mg/5ml`), el ranking prioriza productos con esas unidades exactas.
+- Si aplicas `sort=price_asc|price_desc`, se mantiene primero la seccion de mejores coincidencias de busqueda (incluyendo unidades) y el orden por precio se aplica dentro de cada seccion.
 
 Ejemplo:
 

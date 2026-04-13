@@ -227,6 +227,36 @@ function getSearchRank(item, normalizedQuery, queryTerms, unitTerms) {
   };
 }
 
+function compareSearchRankData(leftRank, rightRank) {
+  if (!leftRank && !rightRank) return 0;
+  if (!leftRank) return 1;
+  if (!rightRank) return -1;
+
+  if (leftRank.bucket !== rightRank.bucket) {
+    return leftRank.bucket - rightRank.bucket;
+  }
+  if (leftRank.matchedUnitsInTitle !== rightRank.matchedUnitsInTitle) {
+    return rightRank.matchedUnitsInTitle - leftRank.matchedUnitsInTitle;
+  }
+  if (leftRank.matchedUnitsInText !== rightRank.matchedUnitsInText) {
+    return rightRank.matchedUnitsInText - leftRank.matchedUnitsInText;
+  }
+  if (leftRank.matchedWordTermsInTitle !== rightRank.matchedWordTermsInTitle) {
+    return rightRank.matchedWordTermsInTitle - leftRank.matchedWordTermsInTitle;
+  }
+  if (leftRank.matchedWordTermsInText !== rightRank.matchedWordTermsInText) {
+    return rightRank.matchedWordTermsInText - leftRank.matchedWordTermsInText;
+  }
+  return leftRank.title.localeCompare(rightRank.title, "es");
+}
+
+function getItemSearchKey(item) {
+  if (item?.id !== undefined && item?.id !== null) return `id:${item.id}`;
+  if (item?.sku) return `sku:${item.sku}`;
+  if (item?.url) return `url:${item.url}`;
+  return `title:${String(item?.title || "")}`;
+}
+
 function parseBoolean(value, fallback = false) {
   if (value === undefined || value === null || value === "") return fallback;
   if (typeof value === "boolean") return value;
@@ -401,6 +431,7 @@ app.get("/products", (req, res) => {
   };
 
   let filtered = state.products;
+  let searchRankByItemKey = null;
 
   if (typeof q === "string" && q.trim()) {
     const search = normalizeText(q);
@@ -409,29 +440,16 @@ app.get("/products", (req, res) => {
     const searchTerms = [...new Set(tokenizeSearchTerms(textWithoutUnits))];
 
     const ranked = [];
+    searchRankByItemKey = new Map();
     for (const item of filtered) {
       const rank = getSearchRank(item, search, searchTerms, unitTerms);
       if (rank === null) continue;
       ranked.push({ item, rank });
+      searchRankByItemKey.set(getItemSearchKey(item), rank);
     }
 
     ranked.sort((left, right) => {
-      if (left.rank.bucket !== right.rank.bucket) {
-        return left.rank.bucket - right.rank.bucket;
-      }
-      if (left.rank.matchedUnitsInTitle !== right.rank.matchedUnitsInTitle) {
-        return right.rank.matchedUnitsInTitle - left.rank.matchedUnitsInTitle;
-      }
-      if (left.rank.matchedUnitsInText !== right.rank.matchedUnitsInText) {
-        return right.rank.matchedUnitsInText - left.rank.matchedUnitsInText;
-      }
-      if (left.rank.matchedWordTermsInTitle !== right.rank.matchedWordTermsInTitle) {
-        return right.rank.matchedWordTermsInTitle - left.rank.matchedWordTermsInTitle;
-      }
-      if (left.rank.matchedWordTermsInText !== right.rank.matchedWordTermsInText) {
-        return right.rank.matchedWordTermsInText - left.rank.matchedWordTermsInText;
-      }
-      return left.rank.title.localeCompare(right.rank.title, "es");
+      return compareSearchRankData(left.rank, right.rank);
     });
 
     filtered = ranked.map((entry) => entry.item);
@@ -478,6 +496,12 @@ app.get("/products", (req, res) => {
   if (normalizedSort === "price_asc" || normalizedSort === "price_desc") {
     const direction = normalizedSort === "price_asc" ? 1 : -1;
     filtered = [...filtered].sort((a, b) => {
+      const rankCompare = compareSearchRankData(
+        searchRankByItemKey?.get(getItemSearchKey(a)),
+        searchRankByItemKey?.get(getItemSearchKey(b))
+      );
+      if (rankCompare !== 0) return rankCompare;
+
       const left = getReferencePrice(a);
       const right = getReferencePrice(b);
 

@@ -14,6 +14,7 @@ const els = {
   offset: document.getElementById("offset"),
   clearBtn: document.getElementById("clearBtn"),
   requestPreview: document.getElementById("requestPreview"),
+  searchHint: document.getElementById("searchHint"),
   productId: document.getElementById("productId"),
   getByIdBtn: document.getElementById("getByIdBtn"),
   syncMax: document.getElementById("syncMax"),
@@ -36,6 +37,8 @@ const state = {
   lastFilterKey: null
 };
 
+const UNIT_EXPRESSION_REGEX = /\b\d+(?:[.,]\d+)?\s*(?:mg|g|mcg|ug|ui|iu|ml|l|meq|%)(?:\s*\/\s*\d+(?:[.,]\d+)?\s*(?:ml|l))?\b|\b\d+\s*(?:unidades?|comprimidos?|capsulas?|ampollas?|gotas?)\b/gi;
+
 function safeText(value) {
   return String(value ?? "")
     .replaceAll("&", "&amp;")
@@ -55,6 +58,34 @@ function formatDate(value) {
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return value;
   return date.toLocaleString("es-PY");
+}
+
+function normalizeForUnitDetection(value) {
+  return String(value ?? "")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase();
+}
+
+function getDetectedUnits(query) {
+  const normalized = normalizeForUnitDetection(query);
+  UNIT_EXPRESSION_REGEX.lastIndex = 0;
+  const matches = normalized.match(UNIT_EXPRESSION_REGEX) || [];
+  return [...new Set(matches.map((m) => m.trim()).filter(Boolean))];
+}
+
+function updateSearchHint() {
+  const units = getDetectedUnits(els.q.value);
+  if (!units.length) {
+    els.searchHint.textContent = "";
+    els.searchHint.classList.remove("visible");
+    return;
+  }
+
+  const unitsLabel = units.join(", ");
+  els.searchHint.textContent =
+    `Unidad detectada: ${unitsLabel}. Primero se priorizan coincidencias con esa unidad y luego se aplica el ordenamiento dentro de esa seccion.`;
+  els.searchHint.classList.add("visible");
 }
 
 async function api(path, options = {}) {
@@ -238,6 +269,8 @@ async function fetchProducts(options = {}) {
   state.loadingProducts = true;
 
   try {
+    updateSearchHint();
+
     const currentFilterKey = getFilterKey();
 
     if (!fromPager && state.lastFilterKey !== null && currentFilterKey !== state.lastFilterKey) {
@@ -327,8 +360,11 @@ els.clearBtn.addEventListener("click", () => {
   els.filtersForm.reset();
   els.offset.value = "0";
   fillSubcategoryOptions();
+  updateSearchHint();
   fetchProducts();
 });
+
+els.q.addEventListener("input", updateSearchHint);
 
 els.getByIdBtn.addEventListener("click", fetchById);
 els.syncBtn.addEventListener("click", runSync);
@@ -351,6 +387,7 @@ els.nextBtn.addEventListener("click", () => {
 
 async function init() {
   try {
+    updateSearchHint();
     await loadMeta();
     await loadCategories();
     await fetchProducts();
