@@ -120,10 +120,14 @@ curl -X POST "http://localhost:3000/sync" -H "x-sync-token: tu-token-seguro" -H 
 - Workflow: `.github/workflows/sync-catalog.yml`
 - Horario: todos los dias a las `04:00` hora Paraguay (`08:00 UTC`)
 - Flujo:
-  1. ejecuta sync
-  2. genera `seed/products.json`
-  3. hace commit y push automatico si hay cambios
-  4. Vercel redeploya por integracion con GitHub
+  1. carga `seed/products.json` como base
+  2. ejecuta sync incremental con concurrencia conservadora
+  3. reintenta automaticamente con concurrencia menor si falla el primer intento
+  4. genera `seed/products.json`
+  5. hace commit y push automatico si hay cambios
+  6. Vercel redeploya por integracion con GitHub
+
+Por defecto el schedule usa incremental para estabilidad. Para full manual, usa `workflow_dispatch` con `full=true`.
 
 Tambien puedes dispararlo manualmente desde GitHub Actions con `workflow_dispatch` (solo usuarios con permisos de escritura al repo).
 

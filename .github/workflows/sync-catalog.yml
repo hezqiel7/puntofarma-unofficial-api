@@ -6,12 +6,12 @@ on:
       full:
         description: "Ejecutar sync full"
         required: false
-        default: true
+        default: false
         type: boolean
       concurrency:
         description: "Concurrencia para scraper"
         required: false
-        default: "40"
+        default: "20"
         type: string
   schedule:
     # 08:00 UTC = 04:00 America/Asuncion
@@ -20,9 +20,14 @@ on:
 permissions:
   contents: write
 
+concurrency:
+  group: sync-catalog
+  cancel-in-progress: false
+
 jobs:
   sync:
     runs-on: ubuntu-latest
+    timeout-minutes: 120
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -36,19 +41,50 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Run sync
+      - name: Prepare baseline snapshot
         run: |
-          CONCURRENCY="40"
-          FULL_FLAG="--full"
+          mkdir -p data
+          if [ -f seed/products.json ]; then
+            cp seed/products.json data/products.json
+            echo "Snapshot seed copiado a data/products.json"
+          fi
+
+      - name: Run sync
+        env:
+          NODE_OPTIONS: --max-old-space-size=4096
+        run: |
+          CONCURRENCY="16"
+          FULL_FLAG=""
 
           if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
             CONCURRENCY="${{ inputs.concurrency }}"
-            if [ "${{ inputs.full }}" != "true" ]; then
-              FULL_FLAG=""
+            if [ "${{ inputs.full }}" = "true" ]; then
+              FULL_FLAG="--full"
             fi
           fi
 
-          npm run sync -- $FULL_FLAG --concurrency "$CONCURRENCY"
+          if ! [[ "$CONCURRENCY" =~ ^[0-9]+$ ]]; then
+            CONCURRENCY="16"
+          fi
+
+          if [ "$CONCURRENCY" -le 0 ]; then
+            CONCURRENCY="16"
+          fi
+
+          run_sync () {
+            npm run sync -- $FULL_FLAG --concurrency "$1"
+          }
+
+          echo "Ejecutando sync con concurrency=$CONCURRENCY full=${FULL_FLAG:-false}"
+
+          if ! run_sync "$CONCURRENCY"; then
+            echo "Primer intento fallido. Reintentando con concurrencia mas baja..."
+            RETRY_CONCURRENCY=10
+            if [ "$CONCURRENCY" -lt "$RETRY_CONCURRENCY" ]; then
+              RETRY_CONCURRENCY="$CONCURRENCY"
+            fi
+            run_sync "$RETRY_CONCURRENCY"
+          fi
 
       - name: Build seed snapshot
         run: npm run seed:build

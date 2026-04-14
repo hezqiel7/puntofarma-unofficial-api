@@ -5,6 +5,7 @@ const { scrapeAllProducts } = require("./scraper/puntofarma");
 
 const DATA_DIR = path.join(process.cwd(), "data");
 const DATA_FILE = path.join(DATA_DIR, "products.json");
+const SEED_FILE = path.join(process.cwd(), "seed", "products.json");
 
 function parseArg(name, fallback = null) {
   const index = process.argv.indexOf(name);
@@ -36,6 +37,28 @@ function mergeErrors(existingErrors, newErrors, products) {
   return [...merged.values()];
 }
 
+async function loadExistingSnapshot() {
+  for (const file of [DATA_FILE, SEED_FILE]) {
+    try {
+      const raw = await fs.readFile(file, "utf8");
+      const parsed = JSON.parse(raw);
+      return {
+        sourceFile: file,
+        products: Array.isArray(parsed.products) ? parsed.products : [],
+        errors: Array.isArray(parsed.errors) ? parsed.errors : []
+      };
+    } catch {
+      continue;
+    }
+  }
+
+  return {
+    sourceFile: null,
+    products: [],
+    errors: []
+  };
+}
+
 async function main() {
   const maxProductsArg = parseArg("--max");
   const concurrencyArg = parseArg("--concurrency", "40");
@@ -54,14 +77,11 @@ async function main() {
   let existingProducts = [];
   let existingErrors = [];
   if (!full) {
-    try {
-      const prevRaw = await fs.readFile(DATA_FILE, "utf8");
-      const prev = JSON.parse(prevRaw);
-      existingProducts = Array.isArray(prev.products) ? prev.products : [];
-      existingErrors = Array.isArray(prev.errors) ? prev.errors : [];
-    } catch {
-      existingProducts = [];
-      existingErrors = [];
+    const snapshot = await loadExistingSnapshot();
+    existingProducts = snapshot.products;
+    existingErrors = snapshot.errors;
+    if (snapshot.sourceFile) {
+      console.log(`Snapshot base cargado desde: ${snapshot.sourceFile}`);
     }
   }
 
