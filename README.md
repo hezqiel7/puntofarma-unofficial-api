@@ -121,11 +121,12 @@ curl -X POST "http://localhost:3000/sync" -H "x-sync-token: tu-token-seguro" -H 
 - Horario: todos los dias a las `04:00` hora Paraguay (`08:00 UTC`)
 - Flujo:
   1. carga `seed/products.json` como base
-  2. ejecuta sync incremental con concurrencia conservadora
-  3. reintenta automaticamente con concurrencia menor si falla el primer intento
-  4. genera `seed/products.json`
-  5. hace commit y push automatico si hay cambios
-  6. Vercel redeploya por integracion con GitHub
+  2. valida que la base no este vacia (fail-fast si esta rota)
+  3. ejecuta sync incremental con concurrencia conservadora
+  4. reintenta automaticamente con concurrencia menor (hasta 3 intentos)
+  5. genera `seed/products.json`
+  6. hace commit y push automatico si hay cambios
+  7. Vercel redeploya por integracion con GitHub
 
 Por defecto el schedule usa incremental para estabilidad. Para full manual, usa `workflow_dispatch` con `full=true`.
 

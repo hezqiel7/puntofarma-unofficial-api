@@ -62,7 +62,7 @@ async function loadExistingSnapshot() {
 async function main() {
   const maxProductsArg = parseArg("--max");
   const concurrencyArg = parseArg("--concurrency", "40");
-  const full = hasFlag("--full");
+  let full = hasFlag("--full");
 
   const maxProducts = maxProductsArg ? Number(maxProductsArg) : null;
   const concurrency = Number(concurrencyArg);
@@ -82,6 +82,20 @@ async function main() {
     existingErrors = snapshot.errors;
     if (snapshot.sourceFile) {
       console.log(`Snapshot base cargado desde: ${snapshot.sourceFile}`);
+      console.log(`Productos base: ${existingProducts.length} | Errores base: ${existingErrors.length}`);
+    }
+
+    if (!snapshot.sourceFile || existingProducts.length === 0) {
+      if (process.env.CI) {
+        throw new Error(
+          "No hay snapshot base para sync incremental en CI. Verifica seed/products.json antes de ejecutar el workflow."
+        );
+      }
+
+      console.warn("No se encontro snapshot base. Se cambiara automaticamente a modo full.");
+      full = true;
+      existingProducts = [];
+      existingErrors = [];
     }
   }
 

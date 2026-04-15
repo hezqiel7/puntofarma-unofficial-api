@@ -43,17 +43,27 @@ jobs:
 
       - name: Prepare baseline snapshot
         run: |
+          if [ ! -f seed/products.json ]; then
+            echo "ERROR: seed/products.json no existe. Se cancela para evitar full crawl inestable." >&2
+            exit 1
+          fi
+
           mkdir -p data
-          if [ -f seed/products.json ]; then
-            cp seed/products.json data/products.json
-            echo "Snapshot seed copiado a data/products.json"
+          cp seed/products.json data/products.json
+          echo "Snapshot seed copiado a data/products.json"
+
+          BASE_COUNT=$(node -e "const fs=require('fs'); const p='data/products.json'; const o=JSON.parse(fs.readFileSync(p,'utf8')); process.stdout.write(String((o.products||[]).length));")
+          echo "Productos base detectados: $BASE_COUNT"
+          if [ "$BASE_COUNT" -lt 10000 ]; then
+            echo "ERROR: snapshot base demasiado pequeno ($BASE_COUNT). Se cancela para evitar sync full accidental." >&2
+            exit 1
           fi
 
       - name: Run sync
         env:
           NODE_OPTIONS: --max-old-space-size=4096
         run: |
-          CONCURRENCY="16"
+          CONCURRENCY="12"
           FULL_FLAG=""
 
           if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
@@ -79,11 +89,19 @@ jobs:
 
           if ! run_sync "$CONCURRENCY"; then
             echo "Primer intento fallido. Reintentando con concurrencia mas baja..."
-            RETRY_CONCURRENCY=10
+            RETRY_CONCURRENCY=8
             if [ "$CONCURRENCY" -lt "$RETRY_CONCURRENCY" ]; then
               RETRY_CONCURRENCY="$CONCURRENCY"
             fi
-            run_sync "$RETRY_CONCURRENCY"
+
+            if ! run_sync "$RETRY_CONCURRENCY"; then
+              echo "Segundo intento fallido. Ultimo intento con concurrencia minima segura..."
+              FINAL_RETRY_CONCURRENCY=4
+              if [ "$RETRY_CONCURRENCY" -lt "$FINAL_RETRY_CONCURRENCY" ]; then
+                FINAL_RETRY_CONCURRENCY="$RETRY_CONCURRENCY"
+              fi
+              run_sync "$FINAL_RETRY_CONCURRENCY"
+            fi
           fi
 
       - name: Build seed snapshot
