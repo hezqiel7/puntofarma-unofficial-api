@@ -8,7 +8,9 @@
     "start": "node src/server.js",
     "dev": "node --watch src/server.js",
     "sync": "node src/sync.js",
-    "seed:build": "node src/build-seed.js"
+    "seed:build": "node src/build-seed.js",
+    "sync:chunk": "node src/sync-chunk.js",
+    "sync:merge": "node src/merge-chunks.js"
   },
   "dependencies": {
     "express": "^4.21.2",

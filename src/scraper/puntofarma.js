@@ -290,6 +290,8 @@ async function scrapeProductFromUrl(api, url, options = {}) {
 async function scrapeAllProducts(options = {}) {
   const {
     maxProducts = null,
+    startIndex = 0,
+    endIndex = null,
     concurrency = 24,
     onProgress = null,
     existingProducts = [],
@@ -302,7 +304,14 @@ async function scrapeAllProducts(options = {}) {
   } = options;
 
   const allUrls = await getProductUrlsFromSitemap();
-  const targetUrls = Number.isInteger(maxProducts) ? allUrls.slice(0, maxProducts) : allUrls;
+
+  const safeStartIndex = Number.isFinite(Number(startIndex)) ? Math.max(0, Math.floor(Number(startIndex))) : 0;
+  const safeEndIndex = Number.isFinite(Number(endIndex))
+    ? Math.max(safeStartIndex, Math.floor(Number(endIndex)))
+    : allUrls.length;
+
+  const rangedUrls = allUrls.slice(safeStartIndex, safeEndIndex);
+  const targetUrls = Number.isInteger(maxProducts) ? rangedUrls.slice(0, maxProducts) : rangedUrls;
 
   const existingByUrl = new Map();
   const existingById = new Map();
@@ -413,6 +422,8 @@ async function scrapeAllProducts(options = {}) {
 
   return {
     totalUrls: allUrls.length,
+    rangeStart: safeStartIndex,
+    rangeEnd: safeEndIndex,
     requestedUrls: targetUrls.length,
     fetchedUrls: urlsToFetch.length,
     preservedUrls: preserved.length,

@@ -120,15 +120,15 @@ curl -X POST "http://localhost:3000/sync" -H "x-sync-token: tu-token-seguro" -H 
 - Workflow: `.github/workflows/sync-catalog.yml`
 - Horario: todos los dias a las `04:00` hora Paraguay (`08:00 UTC`)
 - Flujo:
-  1. carga `seed/products.json` como base
-  2. valida que la base no este vacia (fail-fast si esta rota)
-  3. ejecuta sync **full** nocturno con concurrencia conservadora
-  4. reintenta automaticamente con concurrencia menor (hasta 3 intentos)
+  1. divide el catalogo en fases independientes (chunks de 5000 URLs)
+  2. ejecuta cada fase en proceso aislado (libera memoria entre fases)
+  3. aplica reintentos por fase con concurrencia mas baja si falla
+  4. mergea todos los chunks en un solo `data/products.json`
   5. genera `seed/products.json`
   6. hace commit y push automatico si hay cambios
   7. Vercel redeploya por integracion con GitHub
 
-El schedule corre full cada noche para reflejar cambios de precio del catalogo completo. En ejecucion manual (`workflow_dispatch`) puedes poner `full=false` si quieres forzar modo incremental.
+El schedule corre full cada noche para reflejar cambios de precio. La ejecucion manual (`workflow_dispatch`) permite `full=true` (por fases) o `full=false` (incremental rapido).
 
 Tambien puedes dispararlo manualmente desde GitHub Actions con `workflow_dispatch` (solo usuarios con permisos de escritura al repo).
 
@@ -162,6 +162,8 @@ Importante en Vercel:
 - `src/scraper/puntofarma.js`: scraping y estrategia incremental
 - `src/server.js`: API Express
 - `src/sync.js`: sync por CLI
+- `src/sync-chunk.js`: sync por fase (chunk) para full nocturno
+- `src/merge-chunks.js`: merge final de fases en un snapshot unico
 - `public/`: interfaz web
 - `seed/products.json`: snapshot para produccion
 - `api/[[...route]].js`: entrada serverless para Vercel
