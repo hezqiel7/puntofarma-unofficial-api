@@ -392,6 +392,8 @@ async function runSync({ maxProducts = null, concurrency = 40, full = false } = 
       skipKnown: !full,
       skipKnownFailures: !full,
       retryAttempts: 2,
+      includeRaw: false,
+      apiResetEvery: 500,
       onProgress: ({ finished, total, url }) => {
         if (finished % 100 === 0 || finished === total) {
           console.log(`[SYNC] ${finished}/${total} | ${url}`);

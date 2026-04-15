@@ -122,13 +122,13 @@ curl -X POST "http://localhost:3000/sync" -H "x-sync-token: tu-token-seguro" -H 
 - Flujo:
   1. carga `seed/products.json` como base
   2. valida que la base no este vacia (fail-fast si esta rota)
-  3. ejecuta sync incremental con concurrencia conservadora
+  3. ejecuta sync **full** nocturno con concurrencia conservadora
   4. reintenta automaticamente con concurrencia menor (hasta 3 intentos)
   5. genera `seed/products.json`
   6. hace commit y push automatico si hay cambios
   7. Vercel redeploya por integracion con GitHub
 
-Por defecto el schedule usa incremental para estabilidad. Para full manual, usa `workflow_dispatch` con `full=true`.
+El schedule corre full cada noche para reflejar cambios de precio del catalogo completo. En ejecucion manual (`workflow_dispatch`) puedes poner `full=false` si quieres forzar modo incremental.
 
 Tambien puedes dispararlo manualmente desde GitHub Actions con `workflow_dispatch` (solo usuarios con permisos de escritura al repo).
 

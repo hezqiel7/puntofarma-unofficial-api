@@ -62,13 +62,19 @@ async function loadExistingSnapshot() {
 async function main() {
   const maxProductsArg = parseArg("--max");
   const concurrencyArg = parseArg("--concurrency", "40");
+  const apiResetEveryArg = parseArg("--api-reset-every", process.env.CI ? "250" : "500");
   let full = hasFlag("--full");
 
   const maxProducts = maxProductsArg ? Number(maxProductsArg) : null;
   const concurrency = Number(concurrencyArg);
+  const apiResetEvery = Number(apiResetEveryArg);
 
   if (!Number.isFinite(concurrency) || concurrency <= 0) {
     throw new Error("--concurrency debe ser un numero positivo");
+  }
+
+  if (!Number.isFinite(apiResetEvery) || apiResetEvery <= 0) {
+    throw new Error("--api-reset-every debe ser un numero positivo");
   }
 
   const startedAt = Date.now();
@@ -107,6 +113,8 @@ async function main() {
     skipKnown: !full,
     skipKnownFailures: !full,
     retryAttempts: 2,
+    includeRaw: false,
+    apiResetEvery: Math.floor(apiResetEvery),
     onProgress: ({ finished, total }) => {
       if (total > 0 && (finished % 100 === 0 || finished === total)) {
         console.log(`Progreso: ${finished}/${total}`);

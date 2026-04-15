@@ -40,6 +40,17 @@ function normalizeUrl(url) {
   }
 }
 
+function createApiContext() {
+  return request.newContext({
+    baseURL: BASE_URL,
+    extraHTTPHeaders: {
+      "User-Agent":
+        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36"
+    },
+    locale: "es-PY"
+  });
+}
+
 function getProductIdFromUrl(url) {
   return String(url || "").match(/\/producto\/(\d+)\//)?.[1] || null;
 }
@@ -121,7 +132,9 @@ function extractCodeAndGtin(source) {
   return { code, gtin };
 }
 
-function buildProductFromHtml(html, url) {
+function buildProductFromHtml(html, url, options = {}) {
+  const { includeRaw = false } = options;
+
   const ldData = parseJsonLdBlocks(html);
   const productLd = ldData.find((item) => item?.["@type"] === "Product") || null;
   const breadcrumbLd = ldData.find((item) => item?.["@type"] === "BreadcrumbList") || null;
@@ -139,9 +152,9 @@ function buildProductFromHtml(html, url) {
   const discountedPrice = extractTextPrice(bodySource, "Con descuento");
   const itauPrice = extractTextPrice(bodySource, "Con Itau QR Debito", 260);
 
-  const options = [];
+  const priceOptions = [];
   if (regularPrice) {
-    options.push({
+    priceOptions.push({
       label: "Regular",
       amount: regularPrice,
       displayAmount: `Gs. ${regularPrice.toLocaleString("es-PY")}`,
@@ -150,7 +163,7 @@ function buildProductFromHtml(html, url) {
     });
   }
   if (discountedPrice) {
-    options.push({
+    priceOptions.push({
       label: "Con descuento",
       amount: discountedPrice,
       displayAmount: `Gs. ${discountedPrice.toLocaleString("es-PY")}`,
@@ -159,7 +172,7 @@ function buildProductFromHtml(html, url) {
     });
   }
   if (itauPrice) {
-    options.push({
+    priceOptions.push({
       label: "Con Itau QR Debito",
       amount: itauPrice,
       displayAmount: `Gs. ${itauPrice.toLocaleString("es-PY")}`,
@@ -217,7 +230,7 @@ function buildProductFromHtml(html, url) {
     prices: {
       regular: regularPrice,
       discounted: discountedPrice,
-      options
+      options: priceOptions
     },
     hasDiscount,
     discountPercent,
@@ -227,10 +240,14 @@ function buildProductFromHtml(html, url) {
       path: categoryPath,
       breadcrumbs: breadcrumbItems
     },
-    raw: {
-      productSchema: productLd,
-      breadcrumbSchema: breadcrumbLd
-    },
+    ...(includeRaw
+      ? {
+          raw: {
+            productSchema: productLd,
+            breadcrumbSchema: breadcrumbLd
+          }
+        }
+      : {}),
     scrapedAt: new Date().toISOString()
   };
 }
@@ -240,7 +257,7 @@ function wait(ms) {
 }
 
 async function scrapeProductFromUrl(api, url, options = {}) {
-  const { retryAttempts = 2 } = options;
+  const { retryAttempts = 2, includeRaw = false } = options;
   let lastError = null;
 
   for (let attempt = 1; attempt <= retryAttempts; attempt += 1) {
@@ -255,7 +272,7 @@ async function scrapeProductFromUrl(api, url, options = {}) {
       }
 
       const html = await response.text();
-      return buildProductFromHtml(html, url);
+      return buildProductFromHtml(html, url, { includeRaw });
     } catch (error) {
       lastError = error;
       const message = error instanceof Error ? error.message : String(error);
@@ -279,7 +296,9 @@ async function scrapeAllProducts(options = {}) {
     existingErrors = [],
     skipKnown = false,
     skipKnownFailures = false,
-    retryAttempts = 2
+    retryAttempts = 2,
+    includeRaw = false,
+    apiResetEvery = 500
   } = options;
 
   const allUrls = await getProductUrlsFromSitemap();
@@ -331,30 +350,33 @@ async function scrapeAllProducts(options = {}) {
     }
   }
 
-  const api = await request.newContext({
-    baseURL: BASE_URL,
-    extraHTTPHeaders: {
-      "User-Agent":
-        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36"
-    },
-    locale: "es-PY"
-  });
-
   const fetched = [];
   const errors = [];
   let nextIndex = 0;
   let finished = 0;
   const totalWork = urlsToFetch.length;
 
-  try {
-    const workers = Array.from({ length: Math.max(1, concurrency) }, async () => {
+  const workers = Array.from({ length: Math.max(1, concurrency) }, async () => {
+    let api = await createApiContext();
+    let requestsInContext = 0;
+
+    try {
       while (nextIndex < urlsToFetch.length) {
+        if (requestsInContext >= apiResetEvery) {
+          await api.dispose();
+          api = await createApiContext();
+          requestsInContext = 0;
+        }
+
         const index = nextIndex;
         nextIndex += 1;
 
         const url = urlsToFetch[index];
         try {
-          const product = await scrapeProductFromUrl(api, url, { retryAttempts });
+          const product = await scrapeProductFromUrl(api, url, {
+            retryAttempts,
+            includeRaw
+          });
           fetched.push(product);
         } catch (error) {
           errors.push({
@@ -363,17 +385,18 @@ async function scrapeAllProducts(options = {}) {
           });
         }
 
+        requestsInContext += 1;
         finished += 1;
         if (typeof onProgress === "function") {
           onProgress({ finished, total: totalWork, url });
         }
       }
-    });
+    } finally {
+      await api.dispose();
+    }
+  });
 
-    await Promise.all(workers);
-  } finally {
-    await api.dispose();
-  }
+  await Promise.all(workers);
 
   const mergedByKey = new Map();
 
