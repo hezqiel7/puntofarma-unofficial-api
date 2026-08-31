@@ -115,10 +115,10 @@ npm start
 curl -X POST "http://localhost:3000/sync" -H "x-sync-token: tu-token-seguro" -H "Content-Type: application/json" -d "{\"full\":true}"
 ```
 
-## Sincronizacion automatica diaria (04:00 Paraguay)
+## Sincronizacion automatica semanal
 
 - Workflow: `.github/workflows/sync-catalog.yml`
-- Horario: todos los dias a las `04:00` hora Paraguay (`08:00 UTC`)
+- Horario: domingos a las `07:00 UTC` (`04:00` en Paraguay, UTC-3)
 - Flujo:
   1. divide el catalogo en fases independientes (chunks de 5000 URLs)
   2. ejecuta cada fase en proceso aislado (libera memoria entre fases)
@@ -128,7 +128,7 @@ curl -X POST "http://localhost:3000/sync" -H "x-sync-token: tu-token-seguro" -H 
   6. hace commit y push automatico si hay cambios
   7. Vercel redeploya por integracion con GitHub
 
-El schedule corre full cada noche para reflejar cambios de precio. La ejecucion manual (`workflow_dispatch`) permite `full=true` (por fases) o `full=false` (incremental rapido).
+El schedule ejecuta un unico sync full semanal para reflejar cambios de precio. La ejecucion manual (`workflow_dispatch`) tambien ejecuta el full por fases.
 
 Tambien puedes dispararlo manualmente desde GitHub Actions con `workflow_dispatch` (solo usuarios con permisos de escritura al repo).
 

@@ -3,30 +3,25 @@ name: Sync Catalog
 on:
   workflow_dispatch:
     inputs:
-      full:
-        description: "Ejecutar sync full por fases"
-        required: false
-        default: true
-        type: boolean
       concurrency:
         description: "Concurrencia base para scraping"
         required: false
         default: "8"
         type: string
   schedule:
-    # 08:00 UTC = 04:00 America/Asuncion
-    - cron: "0 8 * * *"
+    # Full semanal a las 07:00 UTC (04:00 en Paraguay, UTC-3).
+    - cron: "0 7 * * 0"
 
 permissions:
-  contents: write
+  contents: read
 
 concurrency:
   group: sync-catalog
-  cancel-in-progress: false
+  cancel-in-progress: true
 
 jobs:
   full_chunks:
-    if: github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && inputs.full == true)
+    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
     timeout-minutes: 360
     strategy:
@@ -110,10 +105,12 @@ jobs:
           retention-days: 3
 
   merge_full:
-    if: github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && inputs.full == true)
+    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
     timeout-minutes: 120
     needs: full_chunks
+    permissions:
+      contents: write
 
     steps:
       - name: Checkout
@@ -124,9 +121,6 @@ jobs:
         with:
           node-version: 20
           cache: npm
-
-      - name: Install dependencies
-        run: npm ci
 
       - name: Download chunk artifacts
         uses: actions/download-artifact@v4
@@ -137,62 +131,6 @@ jobs:
 
       - name: Merge chunks into data snapshot
         run: npm run sync:merge -- --input-dir artifacts/chunks --output data/products.json
-
-      - name: Build seed snapshot
-        run: npm run seed:build
-
-      - name: Commit and push seed changes
-        run: |
-          if git diff --quiet -- seed/products.json; then
-            echo "Sin cambios en seed/products.json"
-            exit 0
-          fi
-
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add seed/products.json
-          git commit -m "chore: update seed catalog snapshot"
-          git push
-
-  incremental_manual:
-    if: github.event_name == 'workflow_dispatch' && inputs.full != true
-    runs-on: ubuntu-latest
-    timeout-minutes: 120
-
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: 20
-          cache: npm
-
-      - name: Install dependencies
-        run: npm ci
-
-      - name: Prepare baseline snapshot
-        run: |
-          if [ ! -f seed/products.json ]; then
-            echo "ERROR: seed/products.json no existe" >&2
-            exit 1
-          fi
-          mkdir -p data
-          cp seed/products.json data/products.json
-
-      - name: Run incremental sync
-        env:
-          NODE_OPTIONS: --max-old-space-size=4096
-        run: |
-          CONCURRENCY="${{ inputs.concurrency }}"
-          if ! [[ "$CONCURRENCY" =~ ^[0-9]+$ ]]; then
-            CONCURRENCY="8"
-          fi
-          if [ "$CONCURRENCY" -le 0 ]; then
-            CONCURRENCY="8"
-          fi
-          npm run sync -- --concurrency "$CONCURRENCY" --api-reset-every 250
 
       - name: Build seed snapshot
         run: npm run seed:build
